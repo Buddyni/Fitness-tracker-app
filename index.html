@@ -1,243 +1,380 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Fitness Tracker mit Übungsliste</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      font-family: sans-serif;
-      max-width: 700px;
-      margin: auto;
-      padding: 20px;
-      background: #f9f9f9;
-    }
-    input, button, select {
-      width: 100%;
-      margin-bottom: 10px;
-      padding: 8px;
-      font-size: 16px;
-    }
-    .entry {
-      background: #fff;
-      padding: 10px;
-      margin: 8px 0;
-      border-left: 5px solid #4caf50;
-    }
-    canvas {
-      background: #fff;
-      border-radius: 8px;
-      padding: 10px;
-    }
-    ul {
-      padding-left: 20px;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fitness Tracker mit Dark Mode</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body {
+    font-family: sans-serif;
+    max-width: 700px;
+    margin: auto;
+    padding: 20px;
+    background: #f9f9f9;
+    color: #222;
+    transition: background-color 0.3s, color 0.3s;
+  }
+  input, button, select {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 8px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+    color: #222;
+    transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+  }
+  button {
+    cursor: pointer;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+  }
+  button:hover {
+    background-color: #45a049;
+  }
+  .entry {
+    background: #fff;
+    padding: 10px;
+    margin: 8px 0;
+    border-left: 5px solid #4caf50;
+    transition: background-color 0.3s, border-color 0.3s;
+  }
+  canvas {
+    background: #fff;
+    border-radius: 8px;
+    padding: 10px;
+    transition: background-color 0.3s;
+  }
+  /* Dark Mode Styles */
+  body.dark {
+    background-color: #121212;
+    color: #e0e0e0;
+  }
+  body.dark input, 
+  body.dark button, 
+  body.dark select {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border: 1px solid #444;
+  }
+  body.dark button {
+    background-color: #388e3c;
+    color: #e0e0e0;
+  }
+  body.dark button:hover {
+    background-color: #2e7d32;
+  }
+  body.dark .entry {
+    background-color: #1c1c1c;
+    border-left-color: #81c784;
+  }
+  body.dark canvas {
+    background-color: #1c1c1c;
+  }
+  /* Dark Mode Toggle Switch */
+  .toggle-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    justify-content: flex-end;
+  }
+  .toggle-label {
+    margin-right: 10px;
+    font-weight: bold;
+  }
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+  }
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+  }
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+  }
+  input:checked + .slider {
+    background-color: #4caf50;
+  }
+  input:checked + .slider:before {
+    transform: translateX(26px);
+  }
+</style>
 </head>
 <body>
 
-  <h1>📋 Tages-Training erfassen</h1>
+<div class="toggle-container">
+  <span class="toggle-label">Dark Mode</span>
+  <label class="toggle-switch">
+    <input type="checkbox" id="darkModeToggle" />
+    <span class="slider"></span>
+  </label>
+</div>
 
-  <!-- Datalist für Übungsvorschläge -->
-  <input list="exerciseOptions" id="exercise" placeholder="Übung (z. B. Kniebeugen)" autocomplete="off" />
-  <datalist id="exerciseOptions"></datalist>
+<h1>📋 Fitness Tracker</h1>
 
-  <input type="number" id="sets" placeholder="Sätze" />
-  <input type="number" id="reps" placeholder="Wiederholungen" />
-  <input type="number" id="weight" placeholder="Gewicht (kg)" />
-  <input type="date" id="date" />
-  <button onclick="addExercise()">📝 Übung hinzufügen</button>
+<input type="text" id="exercise" placeholder="Übung (z. B. Bankdrücken)" list="exercise-list" />
+<datalist id="exercise-list"></datalist>
 
-  <h3>📌 Tagesliste</h3>
-  <ul id="dailyList"></ul>
-  <button onclick="saveTraining()">💾 Training speichern</button>
+<input type="number" id="sets" placeholder="Sätze" min="1" />
+<input type="number" id="reps" placeholder="Wiederholungen" min="1" />
+<input type="number" id="weight" placeholder="Gewicht (kg)" min="0" step="0.1" />
+<input type="date" id="date" />
+<button onclick="saveEntry()">✅ Speichern</button>
 
-  <h2>📈 Fortschritt anzeigen</h2>
-  <select id="exerciseFilter" onchange="updateChart()">
-    <option value="">– Übung wählen –</option>
-  </select>
-  <canvas id="progressChart" height="200"></canvas>
-  <p id="progressPercent" style="font-weight: bold; font-size: 1.2em; margin-top: 10px;"></p>
+<h2>📈 Fortschritt anzeigen</h2>
+<select id="exerciseSelect" onchange="updateChart()">
+  <option value="">-- Übung wählen --</option>
+</select>
 
-  <h2>📅 Verlauf</h2>
-  <div id="history"></div>
+<canvas id="progressChart" width="600" height="300"></canvas>
 
-  <script>
-    let dailyExercises = [];
-    let chart;
+<h2>🗒️ Trainingsverlauf</h2>
+<div id="trainingLog"></div>
 
-    function loadExerciseList() {
-      const list = JSON.parse(localStorage.getItem('exerciseList') || '[]');
-      return list;
+<script>
+  // Initialisierung der Trainingsdaten und Übungen aus localStorage
+  let trainingsDaten = JSON.parse(localStorage.getItem('trainingsDaten')) || {};
+  let übungen = JSON.parse(localStorage.getItem('übungen')) || [];
+
+  // Dark Mode laden und anwenden
+  const darkModeToggle = document.getElementById('darkModeToggle');
+  if(localStorage.getItem('darkMode') === 'enabled') {
+    document.body.classList.add('dark');
+    darkModeToggle.checked = true;
+  }
+
+  darkModeToggle.addEventListener('change', () => {
+    if(darkModeToggle.checked) {
+      document.body.classList.add('dark');
+      localStorage.setItem('darkMode', 'enabled');
+    } else {
+      document.body.classList.remove('dark');
+      localStorage.setItem('darkMode', 'disabled');
+    }
+  });
+
+  // Übung zur Liste hinzufügen, wenn nicht vorhanden
+  function addExerciseToList(exercise) {
+    if (!übungen.includes(exercise)) {
+      übungen.push(exercise);
+      übungen.sort();
+      localStorage.setItem('übungen', JSON.stringify(übungen));
+      updateExerciseDropdowns();
+    }
+  }
+
+  // Dropdowns und Datalist updaten
+  function updateExerciseDropdowns() {
+    const exerciseSelect = document.getElementById('exerciseSelect');
+    const exerciseList = document.getElementById('exercise-list');
+
+    exerciseSelect.innerHTML = '<option value="">-- Übung wählen --</option>';
+    übungen.forEach(ex => {
+      const option = document.createElement('option');
+      option.value = ex;
+      option.textContent = ex;
+      exerciseSelect.appendChild(option);
+    });
+
+    exerciseList.innerHTML = '';
+    übungen.forEach(ex => {
+      const option = document.createElement('option');
+      option.value = ex;
+      exerciseList.appendChild(option);
+    });
+  }
+
+  updateExerciseDropdowns();
+
+  // Trainingsdaten speichern
+  function saveEntry() {
+    const exercise = document.getElementById('exercise').value.trim();
+    const sets = parseInt(document.getElementById('sets').value);
+    const reps = parseInt(document.getElementById('reps').value);
+    const weight = parseFloat(document.getElementById('weight').value);
+    const date = document.getElementById('date').value;
+
+    if (!exercise || !sets || !reps || isNaN(weight) || !date) {
+      alert('Bitte alle Felder korrekt ausfüllen.');
+      return;
     }
 
-    function saveExerciseList(list) {
-      localStorage.setItem('exerciseList', JSON.stringify(list));
-    }
+    addExerciseToList(exercise);
 
-    function updateExerciseDatalist() {
-      const list = loadExerciseList();
-      const datalist = document.getElementById('exerciseOptions');
-      datalist.innerHTML = '';
-      list.forEach(ex => {
-        const option = document.createElement('option');
-        option.value = ex;
-        datalist.appendChild(option);
+    if (!trainingsDaten[date]) {
+      trainingsDaten[date] = [];
+    }
+    trainingsDaten[date].push({exercise, sets, reps, weight});
+
+    localStorage.setItem('trainingsDaten', JSON.stringify(trainingsDaten));
+    localStorage.setItem('übungen', JSON.stringify(übungen));
+
+    // Formular zurücksetzen
+    document.getElementById('exercise').value = '';
+    document.getElementById('sets').value = '';
+    document.getElementById('reps').value = '';
+    document.getElementById('weight').value = '';
+    document.getElementById('date').value = '';
+
+    updateExerciseDropdowns();
+    renderTrainingLog();
+    updateChart();
+  }
+
+  // Trainingsverlauf anzeigen
+  function renderTrainingLog() {
+    const log = document.getElementById('trainingLog');
+    log.innerHTML = '';
+
+    // Chronologisch sortieren
+    const dates = Object.keys(trainingsDaten).sort();
+
+    dates.forEach(date => {
+      const entries = trainingsDaten[date];
+      const dateDiv = document.createElement('div');
+      dateDiv.innerHTML = `<h3>${date}</h3>`;
+
+      entries.forEach(e => {
+        const entryDiv = document.createElement('div');
+        entryDiv.className = 'entry';
+        entryDiv.textContent = `${e.exercise} — Sätze: ${e.sets}, Wiederholungen: ${e.reps}, Gewicht: ${e.weight}kg`;
+        dateDiv.appendChild(entryDiv);
       });
-    }
 
-    function addExercise() {
-      const exerciseInput = document.getElementById('exercise');
-      const exercise = exerciseInput.value.trim();
-      const sets = document.getElementById('sets').value;
-      const reps = document.getElementById('reps').value;
-      const weight = document.getElementById('weight').value;
+      log.appendChild(dateDiv);
+    });
+  }
 
-      if (!exercise || !sets || !reps || !weight) {
-        alert('Bitte alle Übungsfelder ausfüllen!');
-        return;
+  // Fortschritts-Diagramm (Chart.js)
+  let chart;
+
+  function updateChart() {
+    const exerciseSelect = document.getElementById('exerciseSelect');
+    const selectedExercise = exerciseSelect.value;
+
+    if (!selectedExercise) {
+      if(chart) {
+        chart.destroy();
       }
+      return;
+    }
 
-      let exerciseList = loadExerciseList();
-      if (!exerciseList.includes(exercise)) {
-        exerciseList.push(exercise);
-        saveExerciseList(exerciseList);
-        updateExerciseDatalist();
+    // Alle Daten für die Übung sammeln, sortiert nach Datum
+    const dates = Object.keys(trainingsDaten).sort();
+    const labels = [];
+    const maxWeights = [];
+
+    dates.forEach(date => {
+      const entries = trainingsDaten[date];
+      // Max Gewicht für diese Übung an diesem Datum
+      const matchingEntries = entries.filter(e => e.exercise === selectedExercise);
+      if(matchingEntries.length > 0) {
+        // Max Gewicht von allen Sätzen an dem Tag
+        const maxWeightForDay = Math.max(...matchingEntries.map(e => e.weight));
+        labels.push(date);
+        maxWeights.push(maxWeightForDay);
       }
+    });
 
-      dailyExercises.push({ exercise, sets, reps, weight });
+    // Prozentuale Veränderung berechnen relativ zum ersten Eintrag
+    const firstWeight = maxWeights[0] || 0;
+    const percentChange = maxWeights.map(w => {
+      if(firstWeight === 0) return 0;
+      return ((w - firstWeight) / firstWeight * 100).toFixed(1);
+    });
 
-      updateDailyList();
+    const ctx = document.getElementById('progressChart').getContext('2d');
 
-      exerciseInput.value = '';
-      document.getElementById('sets').value = '';
-      document.getElementById('reps').value = '';
-      document.getElementById('weight').value = '';
+    if(chart) {
+      chart.destroy();
     }
 
-    function updateDailyList() {
-      const list = document.getElementById('dailyList');
-      list.innerHTML = '';
-      dailyExercises.forEach((e, i) => {
-        const li = document.createElement('li');
-        li.textContent = `${e.exercise}: ${e.sets}×${e.reps} mit ${e.weight} kg`;
-        list.appendChild(li);
-      });
-    }
-
-    function saveTraining() {
-      const date = document.getElementById('date').value || new Date().toISOString().slice(0,10);
-      if (dailyExercises.length === 0) {
-        alert('Füge zuerst Übungen zum Training hinzu!');
-        return;
-      }
-
-      const training = { date, exercises: dailyExercises };
-      const allTrainings = JSON.parse(localStorage.getItem('trainings') || '[]');
-      allTrainings.push(training);
-      localStorage.setItem('trainings', JSON.stringify(allTrainings));
-
-      dailyExercises = [];
-      updateDailyList();
-      document.getElementById('date').value = '';
-
-      loadTrainings();
-      updateChart();
-    }
-
-    function loadTrainings() {
-      const history = document.getElementById('history');
-      history.innerHTML = '';
-      const trainings = JSON.parse(localStorage.getItem('trainings') || '[]');
-
-      const filter = document.getElementById('exerciseFilter');
-      const allExercises = new Set();
-      trainings.forEach(t => t.exercises.forEach(e => allExercises.add(e.exercise)));
-      filter.innerHTML = '<option value="">– Übung wählen –</option>';
-      allExercises.forEach(ex => {
-        const opt = document.createElement('option');
-        opt.value = ex;
-        opt.textContent = ex;
-        filter.appendChild(opt);
-      });
-
-      // Chronologische Reihenfolge (älteste zuerst)
-      trainings.forEach(training => {
-        const div = document.createElement('div');
-        div.className = 'entry';
-        div.innerHTML = `<strong>Datum:</strong> ${training.date}<ul>` +
-          training.exercises.map(e =>
-            `<li>${e.exercise}: ${e.sets}×${e.reps} mit ${e.weight} kg</li>`
-          ).join('') + '</ul>';
-        history.appendChild(div);
-      });
-    }
-
-    function updateChart() {
-      const selectedExercise = document.getElementById('exerciseFilter').value;
-      const trainings = JSON.parse(localStorage.getItem('trainings') || '[]');
-
-      let dataPoints = [];
-      trainings.forEach(t => {
-        t.exercises.forEach(e => {
-          if (e.exercise === selectedExercise) {
-            dataPoints.push({ date: t.date, weight: parseFloat(e.weight) });
-          }
-        });
-      });
-
-      dataPoints.sort((a, b) => new Date(a.date) - new Date(b.date));
-      const labels = dataPoints.map(d => d.date);
-      const data = dataPoints.map(d => d.weight);
-
-      const ctx = document.getElementById('progressChart').getContext('2d');
-      if (chart) chart.destroy();
-      chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            label: `Gewicht bei ${selectedExercise}`,
-            data,
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Max Gewicht (kg)',
+            data: maxWeights,
             borderColor: '#4caf50',
-            backgroundColor: 'rgba(76, 175, 80, 0.2)',
-            borderWidth: 2,
+            backgroundColor: 'rgba(76,175,80,0.3)',
             fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          scales: {
-            y: {
-              beginAtZero: false,
-              title: { display: true, text: 'Gewicht (kg)' }
-            },
-            x: {
-              title: { display: true, text: 'Datum' }
-            }
+            tension: 0.3,
+            yAxisID: 'y',
+          },
+          {
+            label: 'Veränderung (%)',
+            data: percentChange,
+            borderColor: '#2196f3',
+            backgroundColor: 'rgba(33,150,243,0.3)',
+            fill: true,
+            tension: 0.3,
+            yAxisID: 'y1',
           }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        stacked: false,
+        scales: {
+          y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            title: {
+              display: true,
+              text: 'Gewicht (kg)'
+            },
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            grid: {
+              drawOnChartArea: false,
+            },
+            title: {
+              display: true,
+              text: 'Veränderung (%)'
+            },
+          },
         }
-      });
-
-      const progressText = document.getElementById('progressPercent');
-      if (data.length > 1) {
-        const first = data[0];
-        const last = data[data.length - 1];
-        const diff = last - first;
-        const percent = (diff / first) * 100;
-        const sign = percent >= 0 ? '+' : '';
-        progressText.textContent = `Fortschritt: ${sign}${percent.toFixed(1)}% gegenüber erstem Training`;
-      } else {
-        progressText.textContent = 'Noch kein Vergleich möglich.';
       }
-    }
+    });
+  }
 
-    // Initial laden
-    updateExerciseDatalist();
-    loadTrainings();
-
-  </script>
+  // Initiale Darstellung
+  renderTrainingLog();
+  updateChart();
+</script>
 
 </body>
 </html>
