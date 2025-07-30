@@ -48,6 +48,21 @@
     padding: 10px;
     transition: background-color 0.3s;
   }
+  #set-adder {
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-top: 15px;
+    background: #fefefe;
+    transition: background-color 0.3s, border-color 0.3s;
+  }
+  #reps, #weight {
+    text-align: center;
+  }
+  .set-input-container {
+    display: flex;
+    gap: 10px;
+  }
   /* Dark Mode Styles */
   body.dark {
     background-color: #121212;
@@ -73,6 +88,10 @@
   }
   body.dark canvas {
     background-color: #1c1c1c;
+  }
+  body.dark #set-adder {
+    background-color: #1c1c1c;
+    border-color: #444;
   }
   /* Dark Mode Toggle Switch */
   .toggle-container {
@@ -137,12 +156,22 @@
 
 <input type="text" id="exercise" placeholder="Übung (z. B. Bankdrücken)" list="exercise-list" />
 <datalist id="exercise-list"></datalist>
-
-<input type="number" id="sets" placeholder="Sätze" min="1" />
-<input type="number" id="reps" placeholder="Wiederholungen" min="1" />
-<input type="number" id="weight" placeholder="Gewicht (kg)" min="0" step="0.1" />
 <input type="date" id="date" />
-<button onclick="saveEntry()">✅ Speichern</button>
+
+<!-- Bereich zum Hinzufügen von Sätzen -->
+<div id="set-adder">
+  <h4>Satz hinzufügen für <span id="current-exercise-display" style="color: #4caf50;"></span></h4>
+  <div class="set-input-container">
+    <input type="number" id="reps" placeholder="Wiederholungen" min="1" />
+    <input type="number" id="weight" placeholder="Gewicht (kg)" min="0" step="0.1" />
+  </div>
+  <button onclick="addSet()">➕ Satz hinzufügen</button>
+  
+  <h5>Aktuelle Sätze für heute:</h5>
+  <ul id="set-list"></ul>
+</div>
+
+<button onclick="saveExercise()" style="margin-top: 15px;">✅ Übung mit Sätzen speichern</button>
 
 <h2>📈 Fortschritt anzeigen</h2>
 <select id="exerciseSelect" onchange="updateChart()">
@@ -155,28 +184,36 @@
 <div id="trainingLog"></div>
 
 <script>
-  // Initialisierung der Trainingsdaten und Übungen aus localStorage
+  // Initialisierung
   let trainingsDaten = JSON.parse(localStorage.getItem('trainingsDaten')) || {};
   let übungen = JSON.parse(localStorage.getItem('übungen')) || [];
+  let currentSets = [];
 
-  // Dark Mode laden und anwenden
+  // UI-Elemente
+  const exerciseInput = document.getElementById('exercise');
+  const dateInput = document.getElementById('date');
+  const repsInput = document.getElementById('reps');
+  const weightInput = document.getElementById('weight');
+  const setList = document.getElementById('set-list');
+  const currentExerciseDisplay = document.getElementById('current-exercise-display');
   const darkModeToggle = document.getElementById('darkModeToggle');
+
+  // Dark Mode Logik
   if(localStorage.getItem('darkMode') === 'enabled') {
     document.body.classList.add('dark');
     darkModeToggle.checked = true;
   }
-
   darkModeToggle.addEventListener('change', () => {
-    if(darkModeToggle.checked) {
-      document.body.classList.add('dark');
-      localStorage.setItem('darkMode', 'enabled');
-    } else {
-      document.body.classList.remove('dark');
-      localStorage.setItem('darkMode', 'disabled');
-    }
+    document.body.classList.toggle('dark');
+    localStorage.setItem('darkMode', document.body.classList.contains('dark') ? 'enabled' : 'disabled');
   });
 
-  // Übung zur Liste hinzufügen, wenn nicht vorhanden
+  // Event Listener für Übungs-Input
+  exerciseInput.addEventListener('input', () => {
+    currentExerciseDisplay.textContent = exerciseInput.value || '...';
+  });
+
+  // Hilfsfunktionen für Übungsliste
   function addExerciseToList(exercise) {
     if (!übungen.includes(exercise)) {
       übungen.push(exercise);
@@ -186,10 +223,10 @@
     }
   }
 
-  // Dropdowns und Datalist updaten
   function updateExerciseDropdowns() {
     const exerciseSelect = document.getElementById('exerciseSelect');
     const exerciseList = document.getElementById('exercise-list');
+    const selectedValue = exerciseSelect.value;
 
     exerciseSelect.innerHTML = '<option value="">-- Übung wählen --</option>';
     übungen.forEach(ex => {
@@ -198,6 +235,7 @@
       option.textContent = ex;
       exerciseSelect.appendChild(option);
     });
+    exerciseSelect.value = selectedValue;
 
     exerciseList.innerHTML = '';
     übungen.forEach(ex => {
@@ -207,18 +245,42 @@
     });
   }
 
-  updateExerciseDropdowns();
+  // Satz-Logik
+  function addSet() {
+    const reps = parseInt(repsInput.value);
+    const weight = parseFloat(weightInput.value);
 
-  // Trainingsdaten speichern
-  function saveEntry() {
-    const exercise = document.getElementById('exercise').value.trim();
-    const sets = parseInt(document.getElementById('sets').value);
-    const reps = parseInt(document.getElementById('reps').value);
-    const weight = parseFloat(document.getElementById('weight').value);
-    const date = document.getElementById('date').value;
+    if (isNaN(reps) || isNaN(weight)) {
+      alert('Bitte Wiederholungen und Gewicht für den Satz eingeben.');
+      return;
+    }
+    currentSets.push({ reps, weight });
+    renderCurrentSets();
+    repsInput.value = '';
+    weightInput.value = '';
+    repsInput.focus();
+  }
 
-    if (!exercise || !sets || !reps || isNaN(weight) || !date) {
-      alert('Bitte alle Felder korrekt ausfüllen.');
+  function renderCurrentSets() {
+    setList.innerHTML = '';
+    currentSets.forEach((s, index) => {
+      const li = document.createElement('li');
+      li.textContent = `Satz ${index + 1}: ${s.reps} Wiederholungen mit ${s.weight} kg`;
+      setList.appendChild(li);
+    });
+  }
+
+  // Speicher-Logik
+  function saveExercise() {
+    const exercise = exerciseInput.value.trim();
+    const date = dateInput.value;
+
+    if (!exercise || !date) {
+      alert('Bitte Übung und Datum auswählen.');
+      return;
+    }
+    if (currentSets.length === 0) {
+      alert('Bitte fügen Sie mindestens einen Satz hinzu.');
       return;
     }
 
@@ -227,30 +289,32 @@
     if (!trainingsDaten[date]) {
       trainingsDaten[date] = [];
     }
-    trainingsDaten[date].push({exercise, sets, reps, weight});
+    
+    // Ersetze existierende Übung am selben Tag oder füge sie neu hinzu
+    const existingEntryIndex = trainingsDaten[date].findIndex(e => e.exercise === exercise);
+    if (existingEntryIndex > -1) {
+      trainingsDaten[date][existingEntryIndex].sets.push(...currentSets);
+    } else {
+      trainingsDaten[date].push({ exercise, sets: currentSets });
+    }
 
     localStorage.setItem('trainingsDaten', JSON.stringify(trainingsDaten));
-    localStorage.setItem('übungen', JSON.stringify(übungen));
 
-    // Formular zurücksetzen
-    document.getElementById('exercise').value = '';
-    document.getElementById('sets').value = '';
-    document.getElementById('reps').value = '';
-    document.getElementById('weight').value = '';
-    document.getElementById('date').value = '';
-
-    updateExerciseDropdowns();
+    // Reset
+    currentSets = [];
+    renderCurrentSets();
+    exerciseInput.value = '';
+    currentExerciseDisplay.textContent = '...';
+    
     renderTrainingLog();
     updateChart();
   }
 
-  // Trainingsverlauf anzeigen
+  // Anzeige-Logik
   function renderTrainingLog() {
     const log = document.getElementById('trainingLog');
     log.innerHTML = '';
-
-    // Chronologisch sortieren
-    const dates = Object.keys(trainingsDaten).sort();
+    const dates = Object.keys(trainingsDaten).sort().reverse(); // Neueste zuerst
 
     dates.forEach(date => {
       const entries = trainingsDaten[date];
@@ -260,59 +324,47 @@
       entries.forEach(e => {
         const entryDiv = document.createElement('div');
         entryDiv.className = 'entry';
-        entryDiv.textContent = `${e.exercise} — Sätze: ${e.sets}, Wiederholungen: ${e.reps}, Gewicht: ${e.weight}kg`;
+        let content = `<strong>${e.exercise}</strong><ul>`;
+        e.sets.forEach((s, i) => {
+          content += `<li>Satz ${i + 1}: ${s.reps} x ${s.weight} kg</li>`;
+        });
+        content += '</ul>';
+        entryDiv.innerHTML = content;
         dateDiv.appendChild(entryDiv);
       });
-
       log.appendChild(dateDiv);
     });
   }
 
-  // Fortschritts-Diagramm (Chart.js)
+  // Chart-Logik
   let chart;
-
   function updateChart() {
-    const exerciseSelect = document.getElementById('exerciseSelect');
-    const selectedExercise = exerciseSelect.value;
-
+    const selectedExercise = document.getElementById('exerciseSelect').value;
     if (!selectedExercise) {
-      if(chart) {
-        chart.destroy();
-      }
+      if (chart) chart.destroy();
       return;
     }
 
-    // Alle Daten für die Übung sammeln, sortiert nach Datum
     const dates = Object.keys(trainingsDaten).sort();
     const labels = [];
     const maxWeights = [];
 
     dates.forEach(date => {
-      const entries = trainingsDaten[date];
-      // Max Gewicht für diese Übung an diesem Datum
-      const matchingEntries = entries.filter(e => e.exercise === selectedExercise);
-      if(matchingEntries.length > 0) {
-        // Max Gewicht von allen Sätzen an dem Tag
-        const maxWeightForDay = Math.max(...matchingEntries.map(e => e.weight));
-        labels.push(date);
-        maxWeights.push(maxWeightForDay);
+      const matchingEntry = trainingsDaten[date].find(e => e.exercise === selectedExercise);
+      if (matchingEntry) {
+        const maxWeightForDay = Math.max(...matchingEntry.sets.map(s => s.weight));
+        if (maxWeightForDay > 0) {
+          labels.push(date);
+          maxWeights.push(maxWeightForDay);
+        }
       }
     });
 
-    // Prozentuale Veränderung berechnen relativ zum ersten Eintrag
     const firstWeight = maxWeights[0] || 0;
-    const percentChange = maxWeights.map(w => {
-      if(firstWeight === 0) return 0;
-      return ((w - firstWeight) / firstWeight * 100).toFixed(1);
-    });
+    const percentChange = maxWeights.map(w => firstWeight === 0 ? 0 : ((w - firstWeight) / firstWeight * 100).toFixed(1));
 
-    const ctx = document.getElementById('progressChart').getContext('2d');
-
-    if(chart) {
-      chart.destroy();
-    }
-
-    chart = new Chart(ctx, {
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById('progressChart').getContext('2d'), {
       type: 'line',
       data: {
         labels: labels,
@@ -321,59 +373,32 @@
             label: 'Max Gewicht (kg)',
             data: maxWeights,
             borderColor: '#4caf50',
-            backgroundColor: 'rgba(76,175,80,0.3)',
-            fill: true,
-            tension: 0.3,
             yAxisID: 'y',
           },
           {
             label: 'Veränderung (%)',
             data: percentChange,
             borderColor: '#2196f3',
-            backgroundColor: 'rgba(33,150,243,0.3)',
-            fill: true,
-            tension: 0.3,
             yAxisID: 'y1',
           }
         ]
       },
       options: {
         responsive: true,
-        interaction: {
-          mode: 'index',
-          intersect: false,
-        },
-        stacked: false,
         scales: {
-          y: {
-            type: 'linear',
-            display: true,
-            position: 'left',
-            title: {
-              display: true,
-              text: 'Gewicht (kg)'
-            },
-          },
-          y1: {
-            type: 'linear',
-            display: true,
-            position: 'right',
-            grid: {
-              drawOnChartArea: false,
-            },
-            title: {
-              display: true,
-              text: 'Veränderung (%)'
-            },
-          },
+          y: { type: 'linear', position: 'left', title: { display: true, text: 'Gewicht (kg)' }},
+          y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Veränderung (%)' }}
         }
       }
     });
   }
 
   // Initiale Darstellung
+  updateExerciseDropdowns();
   renderTrainingLog();
   updateChart();
+  dateInput.valueAsDate = new Date();
+  currentExerciseDisplay.textContent = '...';
 </script>
 
 </body>
